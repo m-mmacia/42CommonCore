@@ -1,0 +1,156 @@
+version: "3.8"
+
+# services for inception
+services:
+  nginx:
+    build: ./requirements/nginx
+    container_name: nginx
+    volumes:
+      - wp_data:/var/www/html/wordpress
+      - adminer_data:/var/www/html/adminer
+      - ./requirements/bonus/portfolio/:/var/www/html/
+    ports:
+      - "443:443"
+    restart: always
+    depends_on:
+      - wordpress
+      - portfolio
+      - portainer
+      - adminer
+    networks:
+      - InceptionNetwork
+
+  mariadb:
+    build: ./requirements/mariadb
+    container_name: mariadb
+    environment:
+      WP_DB_NAME : ${WP_DB_NAME}
+      DB_USER : ${DB_USER}
+      DB_PASSWD : ${DB_PASSWD}
+      DB_ROOT_PASSWD : ${DB_ROOT_PASSWD}
+    ports:
+      - "6969:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    restart: always
+    networks:
+      - InceptionNetwork
+
+  wordpress:
+    build: ./requirements/wordpress
+    container_name: wordpress
+    environment:
+      WP_HOST: ${WP_HOST}
+      WP_TITLE: ${WP_TITLE}
+      WP_URL: ${WP_URL}
+      WP_ADMIN: ${WP_ADMIN}
+      WP_ADMIN_PASSWD: ${WP_ADMIN_PASSWD}
+      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
+      WP_DB_NAME: ${WP_DB_NAME}
+      WP_USER: ${WP_USER}
+      WP_PASSWD: ${WP_PASSWD}
+      WP_MAIL: ${WP_MAIL}
+      DB_PASSWD: ${DB_PASSWD}
+      DB_USER: ${DB_USER}
+    depends_on:
+      - mariadb
+    ports:
+      - "9000:9000"
+    volumes:
+      - wp_data:/var/www/html/wordpress
+    restart: always
+    networks:
+      - InceptionNetwork
+# bonus
+  portainer:
+    build: ./requirements/bonus/portainer/
+    container_name: portainer
+    restart: always
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - InceptionNetwork
+
+  redis:
+    container_name: redis
+    build: ./requirements/bonus/redis
+    depends_on:
+      - nginx
+    networks:
+      - InceptionNetwork
+    ports:
+      - 6379:6379
+    restart: always
+
+  portfolio:
+    container_name: portfolio
+    build: ./requirements/bonus/portfolio/
+    volumes:
+      - ./requirements/bonus/portfolio:/var/www/html
+    networks:
+      - InceptionNetwork
+    ports:
+      - "80:80"
+    restart: always
+
+
+
+  adminer:
+    build: ./requirements/bonus/adminer/
+    container_name: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - adminer_data:/var/www/html/adminer
+    networks:
+      - InceptionNetwork
+
+  ftp:
+    build: requirements/bonus/ftp
+    container_name: ftp
+    ports:
+      - "40000-40005:40000-40005"
+      - "21:21"
+      - "20:20"
+    volumes:
+      - wp_data:/home/$FTP_USER/ftp
+    environment:
+      FTP_USER: ${FTP_USER}
+      FTP_PASS: ${FTP_PASS}
+    networks:
+      - InceptionNetwork
+    depends_on:
+      - wordpress
+    restart: always
+#network
+networks:
+  InceptionNetwork:
+    driver: bridge
+
+# volumes
+volumes:
+  db_data:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/user/data/db
+  wp_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/user/data/wp
+      o: bind
+  portainer_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/user/data/portainer
+  adminer_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/user/data/adminer
